@@ -6,7 +6,6 @@ Rebin histogram values.
 import numpy as np
 from numpy.random import uniform
 
-import matplotlib.pyplot as plt
 
 def edge_step(x, y, **kwargs):
     """
@@ -57,7 +56,7 @@ def rebin(x1, y1, x2):
     
     # allocating y2 vector
     n  = x2.size - 1
-    y2 = np.zeros((n,))
+    y2 = []
     
     # loop over all new bins
     for i in range(n):
@@ -67,6 +66,7 @@ def rebin(x1, y1, x2):
     
         # new bin out of x1 range
         if i_hi == 0 or i_lo == x1.size:
+            y2.append( 0. )
             continue
     
         # new bin totally covers x1 range
@@ -93,9 +93,9 @@ def rebin(x1, y1, x2):
             sub_dx    = np.ediff1d(sub_edges)
             sub_y_ave = y1_ave[i_lo-1:i_hi]
     
-        y2[i] = np.sum(sub_dx * sub_y_ave)
+        y2.append( (sub_dx * sub_y_ave).sum() )
 
-    return y2
+    return np.array(y2)
 
 
 if __name__ == '__main__':
@@ -118,6 +118,8 @@ if __name__ == '__main__':
     y_new = rebin(x_old, y_old, x_new)
     
     # plot results ----------------------------------------------------
+    import matplotlib.pyplot as plt
+
     plt.figure()
     edge_step(x_old, y_old, label='old')
     edge_step(x_new, y_new, label='new')

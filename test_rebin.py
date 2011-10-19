@@ -6,6 +6,8 @@ Testing bebin histogram values.
 import numpy as np
 from numpy.random import uniform
 
+import uncertainties.unumpy as unp
+
 import rebin
 
 # ---------------------------------------------------------------------------- #
@@ -133,6 +135,7 @@ def test_x2_in_x1():
     
     # some arbitrary distribution
     y_old = 1. + np.sin(x_old[:-1]*np.pi) / np.ediff1d(x_old)
+
     
     # rebin
     y_new = rebin.rebin(x_old, y_old, x_new)
@@ -144,3 +147,46 @@ def test_x2_in_x1():
 
     assert np.allclose(y_new, y_new_here)
     
+
+# ---------------------------------------------------------------------------- #
+def test_y1_uncertainties():
+    """
+    x2 range surrounds x1 range, y1 has uncertainties
+    """
+    # old size
+    m = 2
+    
+    # new size
+    n = 3
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.linspace(-0.1, 1.2, n+1)
+    
+    # some arbitrary distribution
+    y_old = 1. + np.sin(x_old[:-1]*np.pi) / np.ediff1d(x_old)
+ 
+    # with uncertainties
+    y_old = unp.uarray( [y_old, 0.1*y_old*uniform((m,))] )
+    
+    # rebin
+    y_new = rebin.rebin(x_old, y_old, x_new)
+
+    # compute answer here to check rebin
+    y_old_ave  = y_old / np.ediff1d(x_old)
+    y_new_here = np.array(
+                 [y_old_ave[0]*(x_new[1]-0.), 
+                  y_old_ave[0]*(x_old[1]-x_new[1]) + y_old_ave[1]*(x_new[2]-x_old[1]),
+                  y_old_ave[1]*(x_old[-1]-x_new[-2])]
+                  )
+
+
+    # mean or nominal value comparison
+    assert np.allclose(unp.nominal_values(y_new), 
+                       unp.nominal_values(y_new_here))
+
+    # mean or nominal value comparison
+    assert np.allclose(unp.std_devs(y_new), 
+                       unp.std_devs(y_new_here))
+    assert np.allclose(unp.nominal_values(y_new).sum(),
+                       unp.nominal_values(y_new_here).sum())
