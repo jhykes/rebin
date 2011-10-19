@@ -114,4 +114,33 @@ def test_x2_above_x1():
 
     assert np.allclose(y_new, np.zeros((n,)))
     assert np.allclose(y_new.sum(), 0.)
+
+
+# ---------------------------------------------------------------------------- #
+def test_x2_in_x1():
+    """
+    x2 only has one bin, and it is surrounded by x1 range
+    """
+    # old size
+    m = 4
+    
+    # new size
+    n = 1
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.linspace(0.3, 0.65, n+1)
+    
+    # some arbitrary distribution
+    y_old = 1. + np.sin(x_old[:-1]*np.pi) / np.ediff1d(x_old)
+    
+    # rebin
+    y_new = rebin.rebin(x_old, y_old, x_new)
+
+    # compute answer here to check rebin
+    y_old_ave  = y_old / np.ediff1d(x_old)
+    y_new_here = (    y_old_ave[1]*(x_old[2]-x_new[0])  
+                    + y_old_ave[2]*(x_new[1]-x_old[2]) )
+
+    assert np.allclose(y_new, y_new_here)
     
