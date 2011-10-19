@@ -1,4 +1,4 @@
-The short rebin function resamples a 1D histogram to new bins.
+This rebin function resamples a 1D histogram to new bins.
 
 Say you have an array x1 of bin edges (m+1 entries), and counts in each one are
 recorded in array y1 (m entries). Instead of having the data in the x1 bins,
