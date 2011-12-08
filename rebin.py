@@ -109,6 +109,8 @@ def rebin_spline(x1, y1, x2, interp_kind='piecewise_constant'):
 
     Bins in x2 that are entirely outside the range of x1 are assigned 0.
     """
+    m = y1.size
+    n = x2.size - 1
 
     # midpoints of x1
     x1_mid = x1[:-1] + np.ediff1d(x1)
@@ -116,6 +118,42 @@ def rebin_spline(x1, y1, x2, interp_kind='piecewise_constant'):
     # constructing data for spline
     xx = np.hstack([x1[0], x1_mid, x1[-1]])
     yy = np.hstack([y1[0], y1, y1[-1]])
+
+    # instantiate spline
+    spline = Bounded_Univariate_Spline(xx, yy)
+
+    # area under spline for each old bin
+    areas1 = np.array([spline.integral(x1[i], x1[i+1]) for i in range(m)])
+
+
+    # insert old bin edges into new edges
+    x1_in_x2 = x1[ np.logical_and(x1 > x2[0], x1 < x2[-1]) ]
+    indices  = np.searchsorted(x2, x1_in_x2)
+    subbin_edges = np.insert(x2, indices, x1_in_x2)
+
+    # integrate over each subbin
+    subbin_areas = np.array([spline.integral(subbin_edges[i], 
+                                             subbin_edges[i+1]) 
+                              for i in range(subbin_edges.size-1)])
+
+    # make subbin-to-old bin map
+    subbin_mid = subbin_edges[:-1] + np.ediff1d(subbin_edges)
+    sub2old = np.searchsorted(x1, subbin_mid) - 1
+
+    # make subbin-to-new bin map
+    sub2new = np.searchsorted(x2, subbin_mid) - 1
+
+    # loop over subbins
+    y2 = np.zeros((n,))
+    for i in range(subbin_mid.size):
+        # skip subcells which don't lie in range of x1
+        if sub2old[i] == -1 or sub2old[i] == x1.size-1:
+            continue
+        else:
+            y2[sub2new[i]] += ( y1[sub2old[i]] * subbin_areas[i] 
+                                               / areas1[sub2old[i]] )
+
+    return y2
 
 
 
