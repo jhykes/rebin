@@ -8,12 +8,12 @@ from numpy.random import uniform
 
 
 from scipy.optimize import leastsq
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import UnivariateSpline, splrep, splev, splint
 
 import uncertainties.unumpy as unp
 
 import rebin
-from bounded_splines import Bounded_Univariate_Spline
+from bounded_splines import BoundedUnivariateSpline
 
 
 # ---------------------------------------------------------------------------- #
@@ -46,7 +46,7 @@ def test_x2_same_as_x1():
 
 
 # ---------------------------------------------------------------------------- #
-def test_x2_surround_x1():
+def test_x2_surrounds_x1():
     """
     x2 range surrounds x1 range
     """
@@ -206,52 +206,11 @@ def test_y1_uncertainties():
 #  Tests for cubic-spline rebinning
 # ---------------------------------------------------------------------------- #
 
-def build_spline(x_edges):
-    x_mids = x_edges[:-1] + 0.5*np.ediff1d(x_edges)
-
-    xx = np.hstack([x_edges[0], x_mids, x_edges[-1]])
-
-    yy = np.sin(np.pi*xx/xx.max())
-
-    denom = 10
-    yy[0] = yy[1]
-    #yy[2] = yy[1] / denom
-    yy[-2] = yy[-1] 
-    #yy[-3] = yy[-1] / denom
-
-    def residual(p):
-        yy[0]  = yy[1]  = p[0]
-        #yy[2]  = yy[1] / denom
-        yy[-1] = yy[-2] = p[1]
-        #yy[-3] = yy[-1] / denom 
-
-        spl = Bounded_Univariate_Spline(xx, yy, s=0)
-
-        area0 = spl.integral(xx[0], xx[1])
-        area1 = spl.integral(xx[-2], xx[-1])
-
-        return np.array([ p[0] - area0, p[1] - area1])
-
-    p, n_iters = leastsq(residual, [1,1])
-
-    yy[0]  = yy[1]  = p[0]
-    yy[-2] = yy[-1] = p[1]
-
-    spl = Bounded_Univariate_Spline(xx, yy, s=0)
-
-    1/0
-    return spl
-
-    
-    
-import matplotlib.pyplot as plt
-xf = np.linspace(-0.5, 1.5, 1000)
-
 
 # ---------------------------------------------------------------------------- #
-def test_x2_surrounds_x1():
+def test_x2_surrounds_x1_with_constant_distribution():
     """
-    x2 range is completely above x1 range
+    x2 domain completely surrounds x1 domain
     """
     # old size
     m = 20
@@ -262,17 +221,177 @@ def test_x2_surrounds_x1():
     # bin edges 
     x_old = np.linspace(0., 1., m+1)
     x_new = np.linspace(-0.5, 1.5, n+1)
+
+    # constant spline
+    mms_spline = BoundedUnivariateSpline([0,.1,.2,1], [1,1,1,1], s=0.)
+
+    y_old = np.array(
+                 [ mms_spline.integral(x_old[i],x_old[i+1]) for i in range(m) ])
+
+    y_new_mms = np.array(
+                 [ mms_spline.integral(x_new[i],x_new[i+1]) for i in range(n) ])
     
-    # get spline
-    spl = build_spline(x_old)
-
-    y_old = np.array([ spl.integral(x_old[i],x_old[i+1]) for i in range(m) ])
-
-    y_new_ref = np.array(
-                 [ spl.integral(x_new[i],x_new[i+1]) for i in range(n) ])
-
+    
     # rebin
-    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind='cubic')
+    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
 
+    assert np.allclose(y_new, y_new_mms)
+
+# ---------------------------------------------------------------------------- #
+def test_x2_left_overlap_x1_with_constant_distribution():
+    """
+    x2 domain overlaps x1 domain from the left
+    """
+    # old size
+    m = 20
+    
+    # new size
+    n = 30
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.linspace(-0.75, 0.45, n+1)
+
+    # constant spline
+    mms_spline = BoundedUnivariateSpline([0,.1,.2,1], [1,1,1,1], s=0.)
+
+    y_old = np.array(
+                 [ mms_spline.integral(x_old[i],x_old[i+1]) for i in range(m) ])
+
+    y_new_mms = np.array(
+                 [ mms_spline.integral(x_new[i],x_new[i+1]) for i in range(n) ])
+    
+    
+    # rebin
+    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
+
+    assert np.allclose(y_new, y_new_mms)
+
+# ---------------------------------------------------------------------------- #
+def test_x2_right_overlap_x1_with_constant_distribution():
+    """
+    x2 domain overlaps x1 domain from the right
+    """
+    # old size
+    m = 20
+    
+    # new size
+    n = 30
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.linspace(0.95, 1.05, n+1)
+
+    # constant spline
+    mms_spline = BoundedUnivariateSpline([0,.1,.2,1], [1,1,1,1], s=0.)
+
+    y_old = np.array(
+                 [ mms_spline.integral(x_old[i],x_old[i+1]) for i in range(m) ])
+
+    y_new_mms = np.array(
+                 [ mms_spline.integral(x_new[i],x_new[i+1]) for i in range(n) ])
+    
+    
+    # rebin
+    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
+
+    assert np.allclose(y_new, y_new_mms)
+
+# ---------------------------------------------------------------------------- #
+def test_x1_surrounds_x2_with_constant_distribution():
+    """
+    x1 domain surrounds x2
+    """
+    # old size
+    m = 20
+    
+    # new size
+    n = 30
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.linspace(0.05, 0.26, n+1)
+
+    # constant spline
+    mms_spline = BoundedUnivariateSpline([0,.1,.2,1], [1,1,1,1], s=0.)
+
+    y_old = np.array(
+                 [ mms_spline.integral(x_old[i],x_old[i+1]) for i in range(m) ])
+
+    y_new_mms = np.array(
+                 [ mms_spline.integral(x_new[i],x_new[i+1]) for i in range(n) ])
+    
+    
+    # rebin
+    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
+
+    assert np.allclose(y_new, y_new_mms)
+
+
+# ---------------------------------------------------------------------------- #
+def build_spline(x_edges):
+
+    yy[0]  = yy[1]
+    yy[-1] = yy[-2]
+
+    spl = splrep(xx, yy)
+
+    return spl
+
+    
+
+# ---------------------------------------------------------------------------- #
+def test_x2_surrounds_x1_sine_spline():
+    """
+    x2 range is completely above x1 range
+    using a random vector to build spline
+    """
+    # old size
+    m = 5
+    
+    # new size
+    n = 6
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.array([-.3, -.09, 0.11, 0.14, 0.2, 0.28, 0.73])
+
+    subbins = np.array([-.3, -.09, 0., 0.11, 0.14, 0.2, 0.28, 0.4, 0.6, 0.73])
+
+    y_old = 1.+np.sin(x_old[:-1]*np.pi)
+
+    # compute spline ----------------------------------
+    x_mids = x_old[:-1] + 0.5*np.ediff1d(x_old)
+    xx = np.hstack([x_old[0], x_mids, x_old[-1]])
+    yy = np.hstack([y_old[0], y_old, y_old[-1]])
+
+    # build spline
+    spl = splrep(xx, yy)
+
+    area_old = np.array(
+              [ splint(x_old[i],x_old[i+1], spl) for i in range(m) ])
+
+    # computing subbin areas
+    area_subbins = np.zeros((subbins.size-1,))
+    for i in range(area_subbins.size):
+        a, b = subbins[i:i+2]
+        a = max([a,x_old[0]])
+        b = min([b,x_old[-1]])
+        if b>a:
+            area_subbins[i] = splint(a, b, spl)
+
+    # summing subbin contributions in y_new_ref
+    y_new_ref = np.zeros((x_new.size-1,))
+    y_new_ref[1] = y_old[0] * area_subbins[2] / area_old[0]
+    y_new_ref[2] = y_old[0] * area_subbins[3] / area_old[0]
+    y_new_ref[3] = y_old[0] * area_subbins[4] / area_old[0]
+    y_new_ref[4] = y_old[1] * area_subbins[5] / area_old[1]
+
+    y_new_ref[5]  = y_old[1] * area_subbins[6] / area_old[1]
+    y_new_ref[5] += y_old[2] * area_subbins[7] / area_old[2]
+    y_new_ref[5] += y_old[3] * area_subbins[8] / area_old[3]
+
+    # call rebin function
+    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
 
     assert np.allclose(y_new, y_new_ref)

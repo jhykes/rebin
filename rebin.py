@@ -6,7 +6,7 @@ Rebin histogram values.
 import numpy as np
 from numpy.random import uniform
 
-from bounded_splines import Bounded_Univariate_Spline
+from bounded_splines import BoundedUnivariateSpline
 
 
 def edge_step(x, y, **kwargs):
@@ -23,7 +23,7 @@ def edge_step(x, y, **kwargs):
     return plt.plot(x, np.hstack([y,y[-1]]), drawstyle='steps-post', **kwargs)
 
 
-def rebin(x1, y1, x2, interp_kind='cubic_spline'):
+def rebin(x1, y1, x2, interp_kind=3):
     """
     Rebin histogram values y1 from old bin edges x1 to new edges x2.
 
@@ -34,7 +34,10 @@ def rebin(x1, y1, x2, interp_kind='cubic_spline'):
               each bin.
      * x2 : n+1 array of new bin edges.
      * interp_kind : how is the underlying unknown continuous distribution
-                      assumed to look: {'cubic', 'piecewise_constant'}
+                      assumed to look: {3, 'piecewise_constant'}
+                      3 is cubic splines
+                      piecewise_constant is constant in each histogram bin
+
 
     Returns
     -------
@@ -66,8 +69,11 @@ def rebin_spline(x1, y1, x2, interp_kind):
     -------
      * y2 : n array of rebinned histogram values.
 
-    The rebinning algorithm assumes that the counts in each old bin are
-    uniformly distributed in that bin.
+    The cubic spline fit (which is the only interp_kind tested) 
+    uses the UnivariateSpline class from Scipy, which uses FITPACK.
+    The boundary condition used is not-a-knot, where the second and 
+    second-to-last nodes are not included as knots (but they are still
+    interpolated).
 
     Bins in x2 that are entirely outside the range of x1 are assigned 0.
     """
@@ -81,8 +87,8 @@ def rebin_spline(x1, y1, x2, interp_kind):
     xx = np.hstack([x1[0], x1_mid, x1[-1]])
     yy = np.hstack([y1[0], y1, y1[-1]])
 
-    # instantiate spline
-    spline = Bounded_Univariate_Spline(xx, yy, s=0.)
+    # instantiate spline, s=0 gives interpolating spline
+    spline = BoundedUnivariateSpline(xx, yy, s=0., k=interp_kind)
 
     # area under spline for each old bin
     areas1 = np.array([spline.integral(x1[i], x1[i+1]) for i in range(m)])

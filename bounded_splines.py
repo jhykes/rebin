@@ -3,10 +3,9 @@
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 
-class Bounded_Univariate_Spline(UnivariateSpline):
+class BoundedUnivariateSpline(UnivariateSpline):
     """
-    Interpolatory spline that returns a constant for x outside the
-    specified domain.
+    Spline that returns a constant for x outside the specified domain.
     """
     def __init__(self, x, y, fill_value=0.0, **kwargs):
         self.bnds = [x[0], x[-1]]
