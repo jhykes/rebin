@@ -395,3 +395,68 @@ def test_x2_surrounds_x1_sine_spline():
     y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
 
     assert np.allclose(y_new, y_new_ref)
+
+# ---------------------------------------------------------------------------- #
+def test_y1_uncertainties_spline_with_constant_distribution():
+    """
+    
+    """
+    # old size
+    m = 5
+    
+    # new size
+    n = 6
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    x_new = np.array([-.3, -.09, 0.11, 0.14, 0.2, 0.28, 0.73])
+
+    subbins = np.array([-.3, -.09, 0., 0.11, 0.14, 0.2, 0.28, 0.4, 0.6, 0.73])
+
+    y_old = 1.+np.sin(x_old[:-1]*np.pi)
+
+    # compute spline ----------------------------------
+    x_mids = x_old[:-1] + 0.5*np.ediff1d(x_old)
+    xx = np.hstack([x_old[0], x_mids, x_old[-1]])
+    yy = np.hstack([y_old[0], y_old, y_old[-1]])
+
+    # build spline
+    spl = splrep(xx, yy)
+
+    area_old = np.array(
+              [ splint(x_old[i],x_old[i+1], spl) for i in range(m) ])
+
+    # with uncertainties
+    y_old = unp.uarray( [y_old, 0.1*y_old*uniform((m,))] )
+
+    # computing subbin areas
+    area_subbins = np.zeros((subbins.size-1,))
+    for i in range(area_subbins.size):
+        a, b = subbins[i:i+2]
+        a = max([a,x_old[0]])
+        b = min([b,x_old[-1]])
+        if b>a:
+            area_subbins[i] = splint(a, b, spl)
+
+    # summing subbin contributions in y_new_ref
+    a = np.zeros((x_new.size-1,))
+    y_new_ref = unp.uarray((a,a))
+    y_new_ref[1] = y_old[0] * area_subbins[2] / area_old[0]
+    y_new_ref[2] = y_old[0] * area_subbins[3] / area_old[0]
+    y_new_ref[3] = y_old[0] * area_subbins[4] / area_old[0]
+    y_new_ref[4] = y_old[1] * area_subbins[5] / area_old[1]
+
+    y_new_ref[5]  = y_old[1] * area_subbins[6] / area_old[1]
+    y_new_ref[5] += y_old[2] * area_subbins[7] / area_old[2]
+    y_new_ref[5] += y_old[3] * area_subbins[8] / area_old[3]
+
+    # call rebin function
+    y_new = rebin.rebin(x_old, y_old, x_new, interp_kind=3)
+
+    # mean or nominal value comparison
+    assert np.allclose(unp.nominal_values(y_new), 
+                       unp.nominal_values(y_new_ref))
+
+    # mean or nominal value comparison
+    assert np.allclose(unp.std_devs(y_new), 
+                       unp.std_devs(y_new_ref))
