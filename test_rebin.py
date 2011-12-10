@@ -13,7 +13,7 @@ from scipy.interpolate import UnivariateSpline, splrep, splev, splint
 import uncertainties.unumpy as unp
 
 import rebin
-from bounded_splines import BoundedUnivariateSpline
+from bounded_splines import BoundedUnivariateSpline, BoundedRectBivariateSpline
 
 
 # ---------------------------------------------------------------------------- #
@@ -329,18 +329,6 @@ def test_x1_surrounds_x2_with_constant_distribution():
 
 
 # ---------------------------------------------------------------------------- #
-def build_spline(x_edges):
-
-    yy[0]  = yy[1]
-    yy[-1] = yy[-2]
-
-    spl = splrep(xx, yy)
-
-    return spl
-
-    
-
-# ---------------------------------------------------------------------------- #
 def test_x2_surrounds_x1_sine_spline():
     """
     x2 range is completely above x1 range
@@ -460,3 +448,82 @@ def test_y1_uncertainties_spline_with_constant_distribution():
     # mean or nominal value comparison
     assert np.allclose(unp.std_devs(y_new), 
                        unp.std_devs(y_new_ref))
+
+
+# ---------------------------------------------------------------------------- #
+#  Tests for 2d rebinning
+# ---------------------------------------------------------------------------- #
+
+
+# ---------------------------------------------------------------------------- #
+def test_2d_same():
+    """
+    x1, y1 == x2, y2 implies z1 == z2
+    2d
+    """
+    # old size
+    m = 20
+    n = 30
+    
+    # bin edges 
+    x_old = np.linspace(0., 1., m+1)
+    y_old = np.linspace(-0.5, 1.5, n+1)
+
+    z_old = np.random.random((m,n))
+    
+    # rebin
+    z_new = rebin.rebin2d(x_old, y_old, z_old, x_old, y_old)
+
+    assert np.allclose(z_old, z_new)
+
+# ---------------------------------------------------------------------------- #
+def test_2d_constant_distribution():
+    """
+    various new domains with a constant underlying distribution
+    2d
+    """
+    # old size
+    m = 8
+    n = 11
+    
+    # new size
+    p = 5
+    q = 14
+
+    new_bounds = [ (0., 1., -1.5, 1.7),
+                   (0., 1., -1.5, 0.7),
+                   (0., 1., -1.5, -0.7),
+                   (-1., 1.5, -1.5, 1.7),
+                   (-1., 0.5, -1., 0.5),
+                   (0.1, 0.6, 0.1, 0.5),
+                   (0.01, 0.02, -10.0, 20.7)]
+
+    for (a,b,c,d) in new_bounds:
+    
+        # bin edges 
+        x_old = np.linspace(0., 1., m+1)
+        y_old = np.linspace(-0.5, 1.5, n+1)
+    
+        x_new = np.linspace(a, b, p+1)
+        y_new = np.linspace(c, d, q+1)
+    
+        # constant spline
+        z_old = np.ones((m+1,n+1))
+        mms_spline = BoundedRectBivariateSpline(x_old, y_old, z_old, s=0.)
+    
+        z_old = np.zeros((m,n))
+        for i in range(m):
+            for j in range(n):
+                z_old[i,j] =  mms_spline.integral(x_old[i], x_old[i+1],
+                                                  y_old[j], y_old[j+1])
+    
+        z_new_mms = np.zeros((p,q))
+        for i in range(p):
+            for j in range(q):
+                z_new_mms[i,j] =  mms_spline.integral(x_new[i], x_new[i+1],
+                                                      y_new[j], y_new[j+1])
+        
+        # rebin
+        z_new = rebin.rebin2d(x_old, y_old, z_old, x_new, y_new)
+    
+        assert np.allclose(z_new, z_new_mms)
