@@ -6,8 +6,11 @@ Rebin 1D and 2D histograms.
 import numpy as np
 from numpy.random import uniform
 
-import uncertainties.unumpy as unp 
-nom = unp.nominal_values
+try:
+    import uncertainties.unumpy as unp 
+    nom = unp.nominal_values
+except ImportError:
+    nom = lambda x: x
 
 from bounded_splines import BoundedUnivariateSpline, BoundedRectBivariateSpline
 
@@ -94,7 +97,10 @@ def rebin_spline(x1, y1, x2, interp_kind):
     #  To get the spline to flatten out at the edges, duplicate bin mid values
     #   as value on the two boundaries.
     xx = np.hstack([x1[0], x1_mid, x1[-1]])
-    yy = np.hstack([nom(y1[0]), nom(y1), nom(y1[-1])])
+    yy = np.hstack([y1[0], y1, y1[-1]])
+
+    # strip uncertainties from data
+    yy = nom(yy)
 
     # instantiate spline, s=0 gives interpolating spline
     spline = BoundedUnivariateSpline(xx, yy, s=0., k=interp_kind)
