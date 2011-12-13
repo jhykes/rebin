@@ -274,6 +274,7 @@ def rebin2d(x1, y1, z1, x2, y2, interp_kind=3):
                                         ky=interp_kind)
 
     # area under spline for each old bin
+    # todo: only integrate over old bins which will contribute to new bins
     areas1 = np.zeros((m,n))
     for i in range(m):
         for j in range(n):
