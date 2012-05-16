@@ -2,7 +2,7 @@ This rebin function resamples a 1D or 2D histogram to new bins.
 
 In the 1D case, we have an array ``x1`` of bin edges (``m+1`` entries), and
 counts in each one are recorded in array ``y1`` (``m`` entries). Instead of
-having the data in the ``x1`` bins, you have another set of bins that you want
+keeping the data in the ``x1`` bins, we have another set of bins that we want
 the data sorted into. This new set of bins is represented by ``x2`` (with
 ``n+1`` entries).  The rebin function redistributes the counts in ``y1`` into a
 new array ``y2`` (``n`` entries). 
