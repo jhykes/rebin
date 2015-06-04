@@ -33,6 +33,68 @@ def edge_step(x, y, **kwargs):
     return plt.plot(x, np.hstack([y,y[-1]]), drawstyle='steps-post', **kwargs)
 
 
+def rebin_along_axis(y1, x1, x2, axis=0, interp_kind=3):
+    """
+    Rebins an N-dimensional array along a given axis, in a piecewise-constant
+    fashion.
+
+    Parameters
+    ----------
+    y1 : array_like
+        The input image
+    x1 : array_like
+        The monotonically increasing/decreasing original bin edges along
+        `axis`, must be 1 greater than `np.size(y1, axis)`.
+    y2 : array_like
+        The final bin_edges along `axis`.
+    axis : int
+        The axis to be rebinned, it must exist in the original image.
+    interp_kind : how is the underlying unknown continuous distribution
+                  assumed to look: {3, 'piecewise_constant'}
+                  3 is cubic splines
+                  piecewise_constant is constant in each histogram bin
+
+    Returns
+    -------
+    output : np.ndarray
+        The rebinned image.
+    """
+
+    orig_shape = np.array(y1.shape)
+    num_axes = np.size(orig_shape)
+
+    # Output is going to need reshaping
+    new_shape = np.copy(orig_shape)
+    new_shape[axis] = np.size(x2) - 1
+
+    if axis > num_axes - 1:
+        raise ValueError("That axis is not in y1")
+
+    if np.size(y1, axis) != np.size(x1) - 1:
+        raise ValueError("The original number of xbins does not match the axis"
+                         "size")
+
+    odtype = np.dtype('float')
+    if y1.dtype is np.dtype('O'):
+        odtype = np.dtype('O')
+
+    output = np.empty(new_shape, dtype=odtype)
+
+    it = np.nditer(y1, flags=['multi_index', 'refs_ok'])
+    it.remove_axis(axis)
+
+    while not it.finished:
+        a = list(it.multi_index)
+        a.insert(axis, slice(None))
+
+        rebinned = rebin(x1, y1[a], x2, interp_kind=interp_kind)
+
+        output[a] = rebinned[:]
+        it.iternext()
+
+    return output
+
+
 def rebin(x1, y1, x2, interp_kind=3):
     """
     Rebin histogram values y1 from old bin edges x1 to new edges x2.
