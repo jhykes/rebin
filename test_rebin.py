@@ -1,5 +1,5 @@
 """
-Testing bebin histogram values.
+Testing rebin histogram values.
 
 """
 import numpy as np
