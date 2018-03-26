@@ -5,6 +5,7 @@ Rebin 1D and 2D histograms.
 
 import numpy as np
 from numpy.random import uniform
+import matplotlib.pyplot as plt
 
 try:
     import uncertainties.unumpy as unp 
