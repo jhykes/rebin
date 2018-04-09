@@ -5,6 +5,7 @@ Rebin 1D and 2D histograms.
 
 import numpy as np
 from numpy.random import uniform
+import matplotlib.pyplot as plt
 
 try:
     import uncertainties.unumpy as unp 
@@ -260,7 +261,7 @@ def rebin_piecewise_constant(x1, y1, x2):
 
         y2[start_pos] = np.sum(sub_dx * sub_y_ave)
 
-        return y
+        return y2
 
     # the first bin overlaps lower x1 boundary
     if i_place[start_pos] == 0 and start_pos < end_pos:
