@@ -220,7 +220,7 @@ def rebin_piecewise_constant(x1, y1, x2):
     start = cum_sum[np.ceil(i_place[:-1]).astype(int)]
     finish = cum_sum[np.floor(i_place[1:]).astype(int)]
 
-    y2 = np.where(whole_bins, finish - start, 0)
+    y2 = np.where(whole_bins, finish - start, 0.)
 
     bin_loc = np.clip(np.floor(i_place).astype(int), 0, len(y1) - 1)
 
