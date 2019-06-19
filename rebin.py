@@ -203,113 +203,44 @@ def rebin_spline(x1, y1, x2, interp_kind):
 
 
 def rebin_piecewise_constant(x1, y1, x2):
-    """
-    Rebin histogram values y1 from old bin edges x1 to new edges x2.
-
-    Input
-    -----
-     * x1 : m+1 array of old bin edges.
-     * y1 : m array of old histogram values. This is the total number in 
-              each bin, not an average.
-     * x2 : n+1 array of new bin edges.
-
-    Returns
-    -------
-     * y2 : n array of rebinned histogram values.
-
-    The rebinning algorithm assumes that the counts in each old bin are
-    uniformly distributed in that bin.
-
-    Bins in x2 that are entirely outside the range of x1 are assigned 0.
-    """
-
     x1 = np.asarray(x1)
     y1 = np.asarray(y1)
     x2 = np.asarray(x2)
-    
-    # Divide y1 by bin widths.
-    #  This converts y-values from bin total to bin average over bin width.
-    x1_bin_widths = np.ediff1d(x1)
-    y1_ave = y1 / x1_bin_widths
-    
-    # allocating y2 vector
-    n  = x2.size - 1
-    y2 = np.zeros(n, dtype=y1.dtype)
 
-    i_place = np.searchsorted(x1, x2)
+    # the fractional bin locations of the new bins in the old bins
+    i_place = np.interp(x2, x1, np.arange(len(x1)))
 
-    # find out where x2 intersects with x1, this will determine which x2 bins
-    # we need to consider
-    start_pos = 0
-    end_pos = n
+    cum_sum = np.r_[[0], np.cumsum(y1)]
 
-    start_pos_test = np.where(i_place == 0)[0]
-    if start_pos_test.size > 0:
-        start_pos = start_pos_test[-1]
+    # calculate bins where lower and upper bin edges span
+    # greater than or equal to one original bin.
+    # This is the contribution from the 'intact' bins (not including the
+    # fractional start and end parts.
+    whole_bins = np.floor(i_place[1:]) - np.ceil(i_place[:-1]) >= 1.
+    start = cum_sum[np.ceil(i_place[:-1]).astype(int)]
+    finish = cum_sum[np.floor(i_place[1:]).astype(int)]
 
-    end_pos_test = np.where(i_place == x1.size)[0]
-    if end_pos_test.size > 0:
-        end_pos = end_pos_test[0]
+    y2 = np.where(whole_bins, finish - start, 0)
 
-    # the first bin totally covers x1 range
-    if (start_pos == end_pos - 1
-        and i_place[start_pos] == 0
-        and i_place[start_pos + 1] == x1.size):
-        sub_edges = x1
-        sub_dx = np.ediff1d(sub_edges)
-        sub_y_ave = y1_ave
+    bin_loc = np.clip(np.floor(i_place).astype(int), 0, len(y1) - 1)
 
-        y2[start_pos] = np.sum(sub_dx * sub_y_ave)
+    # fractional contribution for bins where the new bin edges are in the same
+    # original bin.
+    same_cell = np.floor(i_place[1:]) == np.floor(i_place[:-1])
+    frac = i_place[1:] - i_place[:-1]
+    contrib = (frac * y1[bin_loc[:-1]])
+    y2 += np.where(same_cell, contrib, 0.)
 
-        return y2
+    # fractional contribution for bins where the left and right bin edges are in
+    # different original bins.
+    different_cell = np.floor(i_place[1:]) > np.floor(i_place[:-1])
+    frac_left = np.ceil(i_place[:-1]) - i_place[:-1]
+    contrib = (frac_left * y1[bin_loc[:-1]])
 
-    # the first bin overlaps lower x1 boundary
-    if i_place[start_pos] == 0 and start_pos < end_pos:
-        x2_lo, x2_hi = x2[start_pos], x2[start_pos + 1]
-        i_lo, i_hi = i_place[start_pos], i_place[start_pos + 1]
+    frac_right = i_place[1:] - np.floor(i_place[1:])
+    contrib += (frac_right * y1[bin_loc[1:]])
 
-        sub_edges = np.hstack( [ x1[i_lo:i_hi], x2_hi ] )
-        sub_dx    = np.ediff1d(sub_edges)
-        sub_y_ave = y1_ave[i_lo: i_hi]
-
-        y2[start_pos] = np.sum(sub_dx * sub_y_ave)
-
-        start_pos += 1
-
-    # the last bin overlaps upper x1 boundary
-    if (i_place[end_pos] == x1.size and start_pos < end_pos):
-        x2_lo, x2_hi = x2[end_pos - 1], x2[end_pos]
-        i_lo, i_hi = i_place[end_pos - 1], i_place[end_pos]
-
-        sub_edges = np.hstack( [ x2_lo, x1[i_lo:i_hi] ] )
-        sub_dx    = np.ediff1d(sub_edges)
-        sub_y_ave = y1_ave[i_lo - 1:i_hi]
-
-        y2[end_pos - 1] = np.sum(sub_dx * sub_y_ave)
-
-        end_pos -= 1
-
-    if start_pos < end_pos:
-        #deal with interior bins
-
-        # deal with whole parts of bin that are spanned
-        cum_sum = np.cumsum(y1)
-        running_sum = (cum_sum[i_place[start_pos + 1:end_pos + 1] - 2]
-                       - cum_sum[i_place[start_pos:end_pos] - 1])
-
-        y2[start_pos:end_pos] += running_sum
-
-        # deal with fractional start of bin
-        p_sub_dx = x1[i_place[start_pos:end_pos]] - x2[start_pos:end_pos]
-        sub_y_ave = y1_ave[i_place[start_pos:end_pos] - 1]
-
-        y2[start_pos:end_pos] += p_sub_dx * sub_y_ave
-
-        # deal with fractional end of bin
-        p_sub_dx = x2[start_pos + 1:end_pos + 1] - x1[i_place[start_pos + 1:end_pos + 1] - 1]
-        sub_y_ave = y1_ave[i_place[start_pos + 1:end_pos + 1] - 1]
-
-        y2[start_pos:end_pos] += p_sub_dx * sub_y_ave
+    y2 += np.where(different_cell, contrib, 0.)
 
     return y2
 
