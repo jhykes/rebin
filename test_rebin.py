@@ -555,3 +555,45 @@ def test_2d_constant_distribution():
         z_new = rebin.rebin2d(x_old, y_old, z_old, x_new, y_new)
 
         assert_allclose(z_new, z_new_mms)
+
+
+def test_GH9():
+    x_old = np.array([1.5, 2.5, 3.5, 4.5, 5.5, 6.5])
+    y_old = np.array([10, 10, 10, 10, 10])
+    x_new = np.array([1.7, 2.27332857, 2.84665714, 3.41998571,
+                      3.99331429, 4.56664286])
+    y_new = rebin.rebin(x_old, y_old, x_new)
+    assert_allclose(y_new,
+                    [5.7332857] * 5)
+
+    # with uncertainties
+    y_old = np.array([11., 12., 13., 14., 15.])
+
+    y_old = unp.uarray(y_old, 0.1 * y_old)
+
+    # rebin
+    y_new = rebin.rebin_piecewise_constant(x_old, y_old, x_new)
+
+    # compute answer here to check rebin
+    y_old_ave = y_old / np.diff(x_old)
+    y_new_here = np.array(
+        [y_old_ave[0] * (x_new[1] - x_new[0]),
+
+         y_old_ave[0] * (x_old[1] - x_new[1]) +
+         y_old_ave[1] * (x_new[2] - x_old[1]),
+
+         y_old_ave[1] * (x_new[3] - x_new[2]),
+
+         y_old_ave[1] * (x_old[2] - x_new[3]) +
+         y_old_ave[2] * (x_new[4] - x_old[2]),
+
+         y_old_ave[3] * (x_new[5] - x_old[3]) +
+         y_old_ave[2] * (x_old[3] - x_new[4])])
+
+    # mean or nominal value comparison
+    # assert_allclose(unp.nominal_values(y_new),
+    #                 unp.nominal_values(y_new_here))
+
+    # mean or nominal value comparison
+    assert_allclose(unp.std_devs(y_new),
+                    unp.std_devs(y_new_here))
